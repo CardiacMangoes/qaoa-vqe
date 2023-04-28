@@ -1,0 +1,11 @@
+.DS_Store
+.idea
+cmake-build-debug
+build
+exr
+out
+.vs
+.vscode
+*.json
+Debug
+*.pyc
