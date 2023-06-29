@@ -9,7 +9,10 @@ paulis = [I, X, Y, Z]
 
 
 class QAOAHamiltonian:
-    def __init__(self, driver_coupling: CouplingTensor, mixer_coupling: CouplingTensor) -> None:
+    def __init__(self, 
+                 driver_coupling: CouplingTensor, 
+                 mixer_coupling: CouplingTensor,
+                 target_coupling: CouplingTensor) -> None:
         """
         Object that stores the hamiltonians of a QAOA circuit. 
         We normalize the range of the Driver and Mixer to be [0, 2pi]
@@ -18,14 +21,14 @@ class QAOAHamiltonian:
             driver_coupling (CouplingTensor): Driver Hamiltonian (gamma)
             mixer_coupling (CouplingTensor): Mixer Hamiltonian (beta)
         """
-        assert driver_coupling.num_qubits == mixer_coupling.num_qubits, "Target and Mixer qubit mismatch"
+        assert driver_coupling.num_qubits == mixer_coupling.num_qubits, "Driver and Mixer qubits must match"
+        assert driver_coupling.num_qubits == target_coupling.num_qubits, "Target qubits must match Driver and Mixer"
 
         self.num_qubits = driver_coupling.num_qubits
 
         self.driver_coupling = driver_coupling.copy()
         self.mixer_coupling = mixer_coupling.copy()
-        self.target_coupling = self.driver_coupling.copy()
-        self.target_coupling.update(self.mixer_coupling)
+        self.target_coupling = target_coupling.copy()
 
         self.driver_coupling = self.driver_coupling.normalized()
         self.mixer_coupling = self.mixer_coupling.normalized()
@@ -37,7 +40,7 @@ class QAOAHamiltonian:
         self.eigenvalues = None
         self.eigenvectors = None
 
-    def eigen(self, k=None):
+    def eigen(self, k = None):
         """Finds the eigenvalues and eigenvectors of the Target Hamiltonian
 
         Args:
@@ -47,10 +50,15 @@ class QAOAHamiltonian:
             _type_: _description_
         """
         if k is None:
-            k = self.num_qubits ** 2 - 2
-        sparse_matrix_ham = self.target.to_spmatrix()
-        if self.eigenvalues is None or len(self.eigenvalues) < k:
+            k = (2 ** self.num_qubits) - 2
+
+        if self.num_qubits <= 5:
+            matrix_ham = self.target.to_matrix()
+            self.eigenvalues, self.eigenvectors = np.linalg.eigh(matrix_ham)
+        else:
+            sparse_matrix_ham = self.target.to_spmatrix()
             self.eigenvalues, self.eigenvectors = scipy.sparse.linalg.eigsh(sparse_matrix_ham, which='SA', k=k)
+
         return self.eigenvalues[:k], self.eigenvectors.T[:k]
 
     def eigen_values(self, k=None):

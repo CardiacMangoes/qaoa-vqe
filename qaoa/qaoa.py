@@ -153,14 +153,7 @@ class QAOA_Sympy:
         self.wavefunction = self.mixer.subs({self.betas[0]: new_beta}) * self.wavefunction
 
     def make(self):
-        self.make_projection()
         self.make_expectation()
-
-    def make_projection(self):
-        grnd_projection = (self.grnd_state.adjoint() @ self.wavefunction)[0]
-        grnd_probability = grnd_projection * sp.conjugate(grnd_projection)
-
-        self.prob_fn = sp.lambdify(self.parameters, grnd_probability, modules="numpy")
 
     def make_expectation(self):
         if self.verbose: start = time.time()
@@ -181,14 +174,6 @@ class QAOA_Sympy:
     def energy_landscape(self, res):
         s = np.linspace(0, 2 * np.pi, res + 1)[:-1]
         return self.energy_fn(*np.meshgrid(*[s, s] * self.p)).real
-    
-    def probability(self, *args):
-        args = list(args) + (self.p * 2 - len(args)) * [0]
-        return 1 - self.prob_fn(*args).real
-    
-    def probability_landscape(self, res):
-        s = np.linspace(0, 2 * np.pi, res + 1)[:-1]
-        return 1 - self.prob_fn(*np.meshgrid(*[s, s] * self.p)).real
 
 
 ######################
@@ -225,16 +210,17 @@ class QAOA_Numpy:
         result = wavefunction.T.conjugate() @ self.target @ wavefunction
         return result.real
     
-    def energy_landscape(self, res):
+    def energy_landscape(self, res, p):
         s = np.linspace(0, 2 * np.pi, res + 1)[:-1]
         
-        pool = Pool(processes = 5)
-        x, y = np.meshgrid([s], [s])
-        coords = np.vstack([x.flatten(), y.flatten()]).T
+        pool = Pool(processes = 12) 
+        dims = np.meshgrid(*[s] * (2 * p))
+        coords = np.vstack([dim.flatten() for dim in dims]).T
+
         energy = pool.starmap(self.energy, coords)
-        return np.reshape(np.array(energy), (res, res))
+        return np.reshape(np.array(energy), [res] * (2 * p))
     
-    def probability(self, *parameters):
+    def state_ssd(self, *parameters):
         gammas, betas = parameters[::2], parameters[1::2]
 
         assert len(gammas) == len(betas)
@@ -247,20 +233,20 @@ class QAOA_Numpy:
 
             wavefunction = mixer @ (driver @ wavefunction)
 
-        grnd_projection = self.grnd_state.T.conjugate() @ wavefunction
-        grnd_probability = grnd_projection * grnd_projection.conjugate()
-
-        return 1 - grnd_probability.real
+        real_diff = np.real(self.grnd_state) - np.real(wavefunction)
+        imag_diff = np.imag(self.grnd_state) - np.imag(wavefunction)
+        result = np.sum(real_diff ** 2 + imag_diff ** 2) 
+        return result
     
-    def probability_landscape(self, res):
+    def state_ssd_landscape(self, res, p):
         s = np.linspace(0, 2 * np.pi, res + 1)[:-1]
         
-        pool = Pool(processes = 5)
-        x, y = np.meshgrid([s], [s])
-        coords = np.vstack([x.flatten(), y.flatten()]).T
-        energy = pool.starmap(self.probability, coords)
-        return np.reshape(np.array(energy), (res, res))
+        pool = Pool(processes = 12) 
+        dims = np.meshgrid(*[s] * (2 * p))
+        coords = np.vstack([dim.flatten() for dim in dims]).T
 
+        energy = pool.starmap(self.state_ssd, coords)
+        return np.reshape(np.array(energy), [res] * (2 * p))
 
 
 

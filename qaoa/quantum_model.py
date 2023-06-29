@@ -54,33 +54,41 @@ class QuantumModel:
         assert num_qubits % 2 == 0, "N must be even"
         assert mixer_type in {'X', 'Y', 'XY'}, "mixer_type must be 'X', 'Y', or 'XY'"
 
+
+        driver_coupling = CouplingTensor(num_qubits)
         mixer_coupling = CouplingTensor(num_qubits)
         target_coupling = CouplingTensor(num_qubits)
-
+        
         # Constant
-        target_coupling[0:I] = (1 / 4) * ((num_qubits - 1) * (theta / np.pi) ** 2 + np.ceil((num_qubits - 1) / 2.0) *
+        driver_coupling[0:I] = (1 / 4) * ((num_qubits - 1) * (theta / np.pi) ** 2 + np.ceil((num_qubits - 1) / 2.0) *
                                           (1 + 2 * (theta / np.pi)) +
                                           ((num_qubits * (num_qubits - 1)) / 2)) * H_E
 
         # H_E
         for j in range(num_qubits - 1):
             for k in range(j):
-                target_coupling[j:Z, k:Z] += (num_qubits - j - 1) / 2.0 * H_E
+                driver_coupling[j:Z, k:Z] += (num_qubits - j - 1) / 2.0 * H_E
 
         for j in range(num_qubits):
-            target_coupling[j:Z] = (1 / 2.0) * (
+            driver_coupling[j:Z] = (1 / 2.0) * (
                     (theta / np.pi) * (num_qubits - j - 1) +
                     (np.ceil((num_qubits - j - 1) / 2) - ((num_qubits * j) % 2))) * H_E
 
         # H_M
         for i in range(num_qubits):
-            target_coupling[i:Z] += ((-1) ** i) * H_M
+            driver_coupling[i:Z] += ((-1) ** i) * H_M
+
+        target_coupling = driver_coupling.copy()
 
         # H_I
+        for i in range(num_qubits - 1):
+            target_coupling[i:X, (i + 1):X] = H_I
+            target_coupling[i:Y, (i + 1):Y] = H_I
+
         if mixer_type in {'XY'}:
             for i in range(num_qubits - 1):
-                    mixer_coupling[i:X, (i + 1):X] = H_I
-                    mixer_coupling[i:Y, (i + 1):Y] = H_I
+                mixer_coupling[i:X, (i + 1):X] = H_I
+                mixer_coupling[i:Y, (i + 1):Y] = H_I
         elif mixer_type in {'X'}:
             for i in range(num_qubits):
                 mixer_coupling[i:X] = H_I
@@ -88,4 +96,4 @@ class QuantumModel:
             for i in range(num_qubits):
                 mixer_coupling[i:Y] = H_I
 
-        return QAOAHamiltonian(target_coupling, mixer_coupling)
+        return QAOAHamiltonian(driver_coupling, mixer_coupling, target_coupling)
