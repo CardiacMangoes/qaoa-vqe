@@ -4,6 +4,7 @@ import scipy
 
 from qaoa import CouplingTensor
 from utils import hash_dict
+from rich import print
 
 paulis = [I, X, Y, Z]
 

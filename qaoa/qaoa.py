@@ -4,15 +4,19 @@ from qiskit.circuit.parametervector import ParameterVector
 from qiskit.opflow import I, X, Y, Z, H, CircuitStateFn, MatrixEvolution, PauliTrotterEvolution, StateFn, PauliExpectation, CircuitSampler
 from qiskit_aer import QasmSimulator, StatevectorSimulator
 
-import functools
+from functools import lru_cache
 from multiprocessing import Pool
 import numpy as np
 import sympy as sp
 import sympy.physics.quantum as spq
 from scipy import sparse
 from scipy.sparse.linalg import expm
+from tqdm import tqdm
 
 import time
+
+import warnings
+warnings.filterwarnings("ignore")
 
 
 #####################
@@ -194,9 +198,9 @@ class QAOA_Numpy:
 
         self.grnd_energy = hamiltonian.eigen_values(k=1)
         self.grnd_state = hamiltonian.eigen_vectors(k=1)
-        
-    def energy(self, *parameters):
-        gammas, betas = parameters[::2], parameters[1::2]
+     
+    
+    def energy(self, gammas, betas):
 
         assert len(gammas) == len(betas)
 
@@ -213,15 +217,26 @@ class QAOA_Numpy:
     def energy_landscape(self, res, p):
         s = np.linspace(0, 2 * np.pi, res + 1)[:-1]
         
-        pool = Pool(processes = 12) 
+        # create grid of gammas and betas
         dims = np.meshgrid(*[s] * (2 * p))
-        coords = np.vstack([dim.flatten() for dim in dims]).T
+        coords = [dim.flatten() for dim in dims]
+        parameters = np.array(coords).T.reshape(res ** (2*p), 2, p)
 
-        energy = pool.starmap(self.energy, coords)
-        return np.reshape(np.array(energy), [res] * (2 * p))
+        # multiprocess inputs
+        pool = Pool(processes = 12) 
+        energy = pool.starmap(func=self.energy, iterable=tqdm(parameters))
+        pool.close()
+
+        landscape = np.reshape(np.array(energy), [res] * (2 * p))
+
+        if p == 1:
+            landscape = landscape.transpose(1, 0)
+        if p == 2:
+            landscape = landscape.transpose(1, 0, 2, 3)
+
+        return landscape
     
-    def state_ssd(self, *parameters):
-        gammas, betas = parameters[::2], parameters[1::2]
+    def state_ssd(self, gammas, betas):
 
         assert len(gammas) == len(betas)
 
@@ -235,18 +250,30 @@ class QAOA_Numpy:
 
         real_diff = np.real(self.grnd_state) - np.real(wavefunction)
         imag_diff = np.imag(self.grnd_state) - np.imag(wavefunction)
-        result = np.sum(real_diff ** 2 + imag_diff ** 2) 
+        result = np.mean(real_diff ** 2 + imag_diff ** 2) 
         return result
     
     def state_ssd_landscape(self, res, p):
         s = np.linspace(0, 2 * np.pi, res + 1)[:-1]
         
-        pool = Pool(processes = 12) 
+        # create grid of gammas and betas
         dims = np.meshgrid(*[s] * (2 * p))
-        coords = np.vstack([dim.flatten() for dim in dims]).T
+        coords = [dim.flatten() for dim in dims]
+        parameters = np.array(coords).T.reshape(res ** (2*p), 2, p)
 
-        energy = pool.starmap(self.state_ssd, coords)
-        return np.reshape(np.array(energy), [res] * (2 * p))
+        # multiprocess inputs
+        pool = Pool(processes = 12) 
+        state_ssd = pool.starmap(func=self.state_ssd, iterable=tqdm(parameters))
+        pool.close()
+
+        landscape = np.reshape(np.array(state_ssd), [res] * (2 * p))
+
+        if p == 1:
+            landscape = landscape.transpose(1, 0)
+        if p == 2:
+            landscape = landscape.transpose(1, 0, 2, 3)
+
+        return landscape
 
 
 
