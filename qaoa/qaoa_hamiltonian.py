@@ -22,10 +22,10 @@ class QAOAHamiltonian:
             driver_coupling (CouplingTensor): Driver Hamiltonian (gamma)
             mixer_coupling (CouplingTensor): Mixer Hamiltonian (beta)
         """
-        assert driver_coupling.num_qubits == mixer_coupling.num_qubits, "Driver and Mixer qubits must match"
-        assert driver_coupling.num_qubits == target_coupling.num_qubits, "Target qubits must match Driver and Mixer"
+        assert driver_coupling.n == mixer_coupling.n, "Driver and Mixer qubits must match"
+        assert driver_coupling.n == target_coupling.n, "Target qubits must match Driver and Mixer"
 
-        self.num_qubits = driver_coupling.num_qubits
+        self.num_qubits = driver_coupling.n
 
         self.driver_coupling = driver_coupling.copy()
         self.mixer_coupling = mixer_coupling.copy()

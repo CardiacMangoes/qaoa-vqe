@@ -5,8 +5,8 @@ paulis = [I, X, Y, Z]
 
 
 class CouplingTensor:
-    def __init__(self, num_qubits: int, tensor={}) -> None:
-        self.num_qubits = num_qubits
+    def __init__(self, n: int, tensor={}) -> None:
+        self.n = n
         self.tensor = tensor.copy()
 
     def keys(self):
@@ -30,7 +30,7 @@ class CouplingTensor:
         raise TypeError("Not pauli or coord")
 
     def get_coupling(self, key):
-        coupling = np.zeros([self.num_qubits], dtype=int)
+        coupling = np.zeros([self.n], dtype=int)
         ktype = CouplingTensor.key_type(key)
         if ktype == "single pauli":
             coupling[key.start] = paulis.index(key.stop)
@@ -66,13 +66,13 @@ class CouplingTensor:
         tensor = self.tensor.copy()
         tensor.update((x, y / min_coeff) for x, y in tensor.items())
 
-        return CouplingTensor(self.num_qubits, tensor)
+        return CouplingTensor(self.n, tensor)
 
     def copy(self):
-        return CouplingTensor(self.num_qubits, self.tensor.copy())
+        return CouplingTensor(self.n, self.tensor.copy())
 
     def update(self, new_coupling):
-        assert self.num_qubits == new_coupling.num_qubits
+        assert self.n == new_coupling.num_qubits
         self.tensor.update(new_coupling)
 
     def __setitem__(self, key, value: complex) -> None:
@@ -84,6 +84,9 @@ class CouplingTensor:
     def __getitem__(self, key) -> complex:
         coupling = self.get_coupling(key)
         return self.tensor.get(coupling, 0)
+    
+    def __len__(self):
+        return len(self.tensor)
 
     @property
     def __str__(self) -> str:

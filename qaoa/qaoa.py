@@ -174,7 +174,7 @@ class QAOA_Sympy:
     def energy(self, *args):
         args = list(args) + (self.p * 2 - len(args)) * [0]
         return self.energy_fn(*args).real
-    
+
     def energy_landscape(self, res):
         s = np.linspace(0, 2 * np.pi, res + 1)[:-1]
         return self.energy_fn(*np.meshgrid(*[s, s] * self.p)).real
@@ -199,7 +199,6 @@ class QAOA_Numpy:
         self.grnd_energy = hamiltonian.eigen_values(k=1)
         self.grnd_state = hamiltonian.eigen_vectors(k=1)
      
-    
     def energy(self, gammas, betas):
 
         assert len(gammas) == len(betas)
